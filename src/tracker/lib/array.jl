@@ -31,7 +31,7 @@ TrackedArray(c::Call, x::A, Δ::A) where A <: AbstractArray =
 
 TrackedArray(x::AbstractArray) = TrackedArray(Call(), x, zero(x))
 
-Base.eltype(x::Type{<:TrackedArray{T}}) where T <: Real = TrackedReal{T}
+Base.eltype(x::Type{<:TrackedArray{T}}) where T <: Number = TrackedReal{T}
 
 Base.convert(::Type{T}, x::S) where {T<:TrackedArray,S<:T} = x
 
@@ -330,7 +330,7 @@ Statistics.std(x::TrackedArray; dims = :, mean = Statistics.mean(x, dims = dims)
 _std(x::TrackedArray, mean, dims, corrected) = sqrt.(sum((x .- mean).^2, dims = dims) ./ (mapreduce(i -> size(x,i),*, dims) - corrected))
 _std(x::TrackedArray, mean, ::Colon, corrected) = sqrt.(sum((x .- mean).^2) ./ (length(x) - corrected))
 
-LinearAlgebra.norm(x::TrackedArray, p::Real = 2) =
+LinearAlgebra.norm(x::TrackedArray, p::Number = 2) =
   sum(abs.(x).^p .+ eps(0f0))^(1/p) # avoid d(sqrt(x))/dx == Inf at 0
 
 @grad mean(xs; dims = :) = mean(data(xs), dims=dims), Δ -> (_backmean(xs,Δ,dims),)
@@ -447,7 +447,7 @@ unbroadcast(x::Number, Δ) = sum(Δ)
 unbroadcast(x::Base.RefValue, _) = nothing
 
 dual(x, p) = x
-dual(x::Real, p) = Dual(x, p)
+dual(x::Number, p) = Dual(x, p)
 
 function partial(f::F, Δ, i, args::Vararg{Any,N}) where {F,N}
   dargs = ntuple(j -> dual(args[j], i==j), Val(N))
@@ -456,7 +456,7 @@ end
 
 @inline function ∇broadcast(f::F, args::Vararg{Any,N}) where {F,N}
   y = broadcast(f, data.(args)...)
-  eltype(y) <: Real || return y
+  eltype(y) <: Number || return y
   eltype(y) == Bool && return y
   function back(Δ)
     Δargs = ntuple(i -> partial.(f, Δ, i, args...), Val(N))

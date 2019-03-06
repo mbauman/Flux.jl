@@ -1,14 +1,14 @@
-mutable struct TrackedReal{T<:Real} <: Real
+mutable struct TrackedReal{T<:Number} <: Number
   data::T
   tracker::Tracked{T}
 end
 
-TrackedReal(x::Real) = TrackedReal(x, Tracked{typeof(x)}(Call(), zero(x)))
+TrackedReal(x::Number) = TrackedReal(x, Tracked{typeof(x)}(Call(), zero(x)))
 
 data(x::TrackedReal) = x.data
 tracker(x::TrackedReal) = x.tracker
 
-track(f::Call, x::Real) = TrackedReal(x, Tracked{typeof(x)}(f, zero(x)))
+track(f::Call, x::Number) = TrackedReal(x, Tracked{typeof(x)}(f, zero(x)))
 
 function back!(x::TrackedReal; once = true)
     isinf(x) && error("Loss is Inf")
@@ -34,16 +34,16 @@ Base.copy(x::TrackedReal) = x
 
 Base.convert(::Type{TrackedReal{T}}, x::TrackedReal{T}) where T = x
 
-Base.convert(::Type{TrackedReal{T}}, x::Real) where T = TrackedReal(convert(T, x))
+Base.convert(::Type{TrackedReal{T}}, x::Number) where T = TrackedReal(convert(T, x))
 
 Base.convert(::Type{TrackedReal{T}}, x::TrackedReal{S}) where {T,S} =
   error("Not implemented: convert tracked $S to tracked $T")
 
-(T::Type{<:TrackedReal})(x::Real) = convert(T, x)
+(T::Type{<:TrackedReal})(x::Number) = convert(T, x)
 
 for op in [:(==), :≈, :<, :(<=)]
-  @eval Base.$op(x::TrackedReal, y::Real) = Base.$op(data(x), y)
-  @eval Base.$op(x::Real, y::TrackedReal) = Base.$op(x, data(y))
+  @eval Base.$op(x::TrackedReal, y::Number) = Base.$op(data(x), y)
+  @eval Base.$op(x::Number, y::TrackedReal) = Base.$op(x, data(y))
   @eval Base.$op(x::TrackedReal, y::TrackedReal) = Base.$op(data(x), data(y))
 end
 
@@ -72,7 +72,7 @@ using DiffRules, SpecialFunctions, NaNMath
 for (M, f, arity) in DiffRules.diffrules()
   arity == 1 || continue
   @eval begin
-    @grad $M.$f(a::Real) =
+    @grad $M.$f(a::Number) =
       $M.$f(data(a)), Δ -> (Δ * $(DiffRules.diffrule(M, f, :a)),)
     $M.$f(a::TrackedReal) = track($M.$f, a)
   end
@@ -88,11 +88,11 @@ for (M, f, arity) in DiffRules.diffrules()
   f = :($M.$f)
   @eval begin
     @grad $f(a::TrackedReal, b::TrackedReal) = $f(data(a), data(b)), Δ -> (Δ * $da, Δ * $db)
-    @grad $f(a::TrackedReal, b::Real) = $f(data(a), b), Δ -> (Δ * $da, _zero(b))
-    @grad $f(a::Real, b::TrackedReal) = $f(a, data(b)), Δ -> (_zero(a), Δ * $db)
+    @grad $f(a::TrackedReal, b::Number) = $f(data(a), b), Δ -> (Δ * $da, _zero(b))
+    @grad $f(a::Number, b::TrackedReal) = $f(a, data(b)), Δ -> (_zero(a), Δ * $db)
     $f(a::TrackedReal, b::TrackedReal)  = track($f, a, b)
-    $f(a::TrackedReal, b::Real) = track($f, a, b)
-    $f(a::Real, b::TrackedReal) = track($f, a, b)
+    $f(a::TrackedReal, b::Number) = track($f, a, b)
+    $f(a::Number, b::TrackedReal) = track($f, a, b)
   end
 end
 
@@ -105,7 +105,7 @@ import Base:^
 
 using ForwardDiff: Dual
 
-(T::Type{<:Real})(x::Dual) = Dual(T(x.value), map(T, x.partials.values))
+(T::Type{<:Number})(x::Dual) = Dual(T(x.value), map(T, x.partials.values))
 (Dual{T,V,N})(x::Dual) where {T,V,N} = invoke(Dual{T,V,N}, Tuple{Number}, x)
 
 # Tuples
